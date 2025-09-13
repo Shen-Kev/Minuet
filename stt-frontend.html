@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>STT Demo — Recorder + Auto Transcribe</title>
+  <style>
+    :root {
+      --bg:#0b1020; --panel:#141a2e; --muted:#7a86a1; --text:#e6e9f2;
+      --accent:#6ea8fe; --accent-2:#5bd3a9; --danger:#ff7070;
+    }
+    html, body { height:100%; margin:0; background:var(--bg); color:var(--text); font:16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    .wrap { max-width: 880px; margin: 32px auto; padding: 0 16px; }
+    .card { background:var(--panel); border-radius:16px; padding:20px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+    h1 { font-size: 22px; margin: 0 0 12px; }
+    .row { display:flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .row > * { margin: 4px 0; }
+    label { color: var(--muted); font-size: 14px; }
+    input[type=text] { background:#0e1326; border:1px solid #232a45; color:var(--text); border-radius:10px; padding:10px 12px; width: 340px; }
+    button { background:#182248; color:var(--text); border:1px solid #2a366d; padding:10px 16px; border-radius:12px; cursor:pointer; transition: all .15s ease; font-weight:600; }
+    button:hover { transform: translateY(-1px); border-color:#3a4aa3; }
+    button.primary { background: linear-gradient(180deg, #2a4bcc, #143aa8); border-color: #3454d0; }
+    button.danger { background:linear-gradient(180deg, #c42d2d, #a41f1f); border-color:#e55; }
+    button:disabled { opacity:.6; cursor:not-allowed; transform:none; }
+    .pill { display:inline-flex; gap:8px; align-items:center; background:#0e1326; border:1px solid #232a45; color:var(--muted); border-radius:999px; padding:8px 12px; }
+    .status { font-weight:600; color: var(--accent); }
+    .error { color: var(--danger); white-space: pre-wrap; }
+    .muted { color: var(--muted); }
+    .audio { width:100%; margin-top: 8px; }
+    .bar { height:10px; background:#0e1326; border:1px solid #232a45; border-radius:999px; overflow:hidden; }
+    .bar > span { display:block; height:100%; width:0%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width .1s linear; }
+    pre { white-space: pre-wrap; background:#0e1326; border:1px solid #232a45; padding:12px; border-radius:12px; min-height:48px; }
+    .grid { display:grid; grid-template-columns: 1fr; gap: 16px; }
+    @media (min-width: 860px) { .grid { grid-template-columns: 1fr 1fr; } }
+    .small { font-size: 12px; }
+    .right { margin-left:auto; }
+    .tag { font-size: 12px; padding:2px 8px; border:1px solid #24305b; border-radius:999px; color:#aab5d0; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Speech‑to‑Text Demo</h1>
+      <div class="row">
+        <label for="backendUrl">Backend:</label>
+        <input id="backendUrl" type="text" placeholder="http://localhost:8000/transcribe" />
+        <button id="saveUrl">Save</button>
+        <span class="pill small" id="healthPill">Health: <span id="healthStatus" class="muted">unknown</span></span>
+        <button id="checkHealth" class="right">Check Health</button>
+      </div>
+
+      <div style="height: 10px;"></div>
+      <div class="row">
+        <button id="recBtn" class="primary">● Start Recording</button>
+        <button id="stopBtn" class="danger" disabled>■ Stop</button>
+        <span class="pill">Status: <span class="status" id="status">Idle</span></span>
+      </div>
+
+      <audio id="player" controls class="audio"></audio>
+
+      <div class="row" style="align-items:flex-end;">
+        <div style="flex:1;">
+          <div class="row"><label>Upload progress</label></div>
+          <div class="bar"><span id="progress"></span></div>
+          <div class="small muted" id="progressDetail"></div>
+        </div>
+        <div class="right">
+          <span class="tag small" id="fileInfo"></span>
+        </div>
+      </div>
+
+      <div class="grid" style="margin-top:16px;">
+        <div>
+          <h3 style="margin:8px 0;">Transcript</h3>
+          <pre id="transcript"></pre>
+          <div class="row">
+            <button id="copyBtn">Copy Transcript</button>
+            <button id="downloadJson">Download JSON</button>
+          </div>
+        </div>
+        <div>
+          <h3 style="margin:8px 0;">Debug</h3>
+          <pre id="debug" class="small muted"></pre>
+          <div class="error" id="error"></div>
+        </div>
+      </div>
+
+      <p class="small muted">Tip: you can also host this file via <code>python -m http.server 5500</code> and open <code>http://127.0.0.1:5500</code>.</p>
+    </div>
+  </div>
+
+  <script>
+    // ----------------------------
+    // Utilities & state
+    // ----------------------------
+    const $ = (s) => document.querySelector(s);
+    const recBtn = $("#recBtn");
+    const stopBtn = $("#stopBtn");
+    const backendUrlInput = $("#backendUrl");
+    const saveUrlBtn = $("#saveUrl");
+    const checkHealthBtn = $("#checkHealth");
+    const healthStatus = $("#healthStatus");
+    const healthPill = $("#healthPill");
+    const player = $("#player");
+    const statusEl = $("#status");
+    const progressEl = $("#progress");
+    const progressDetail = $("#progressDetail");
+    const transcriptEl = $("#transcript");
+    const errorEl = $("#error");
+    const debugEl = $("#debug");
+    const copyBtn = $("#copyBtn");
+    const downloadJsonBtn = $("#downloadJson");
+    const fileInfo = $("#fileInfo");
+
+    let mediaRecorder = null;
+    let chunks = [];
+    let lastResponse = null;
+    let currentBlob = null;
+    let recordingStart = 0;
+
+    function setStatus(t){ statusEl.textContent = t; }
+    function setError(t){ errorEl.textContent = t || ""; }
+    function setDebug(obj){
+      try { debugEl.textContent = JSON.stringify(obj, null, 2); } catch { debugEl.textContent = String(obj); }
+    }
+    function setProgress(pct, detail=""){
+      progressEl.style.width = Math.max(0, Math.min(100, pct||0)) + "%";
+      progressDetail.textContent = detail;
+    }
+    function getApiUrl(){
+      return localStorage.getItem("stt_url") || backendUrlInput.value.trim() || "http://localhost:8000/transcribe";
+    }
+    function prettyBytes(n){
+      if (!Number.isFinite(n)) return "";
+      const units = ["B","KB","MB","GB"];
+      let i=0, v=n;
+      while (v>=1024 && i<units.length-1){ v/=1024; i++; }
+      return v.toFixed( i ? 1 : 0 ) + " " + units[i];
+    }
+
+    // ----------------------------
+    // Health check
+    // ----------------------------
+    async function checkHealth(){
+      const url = getApiUrl().replace(/\/transcribe$/, "/health");
+      try {
+        const res = await fetch(url, { method:"GET" });
+        const json = await res.json();
+        healthStatus.textContent = json.ok ? "OK" : "error";
+        healthStatus.style.color = json.ok ? "var(--accent-2)" : "var(--danger)";
+        setDebug(json);
+        return json;
+      } catch (e){
+        healthStatus.textContent = "unreachable";
+        healthStatus.style.color = "var(--danger)";
+        setError("Health check failed: " + e.message);
+        return null;
+      }
+    }
+
+    // ----------------------------
+    // Recording
+    // ----------------------------
+    async function startRecording(){
+      setError("");
+      transcriptEl.textContent = "";
+      setProgress(0, "");
+      fileInfo.textContent = "";
+      chunks = []; currentBlob = null;
+
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (e) {
+        setError("Mic permission denied: " + e.message);
+        return;
+      }
+
+      // Pick a safe mime type the browser supports
+      let mime = "audio/webm";
+      if (!MediaRecorder.isTypeSupported(mime)){
+        if (MediaRecorder.isTypeSupported("audio/ogg")) mime = "audio/ogg";
+        else if (MediaRecorder.isTypeSupported("audio/mp4")) mime = "audio/mp4";
+        else mime = "";
+      }
+
+      try {
+        mediaRecorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+      } catch (e){
+        setError("MediaRecorder failed: " + e.message);
+        return;
+      }
+
+      recordingStart = Date.now();
+      mediaRecorder.ondataavailable = (e)=>{ if (e.data && e.data.size > 0) chunks.push(e.data); };
+      mediaRecorder.onstop = onStopRecording;
+      mediaRecorder.start();
+      setStatus("Recording…");
+      recBtn.disabled = true;
+      stopBtn.disabled = false;
+    }
+
+    async function stopRecording(){
+      if (!mediaRecorder) return;
+      mediaRecorder.stop();
+      stopBtn.disabled = true;
+      recBtn.disabled = false;
+      setStatus("Processing audio…");
+    }
+
+    async function onStopRecording(){
+      try{
+        currentBlob = new Blob(chunks, { type: mediaRecorder.mimeType || "audio/webm" });
+        const url = URL.createObjectURL(currentBlob);
+        player.src = url;
+        const durSec = ((Date.now() - recordingStart) / 1000).toFixed(1);
+        fileInfo.textContent = `${(mediaRecorder.mimeType||"audio/webm")} • ${prettyBytes(currentBlob.size)} • ${durSec}s`;
+
+        await transcribeBlob(currentBlob);
+      } catch (e){
+        setError("Stop failed: " + e.message);
+      } finally {
+        // stop all tracks
+        mediaRecorder.stream.getTracks().forEach(t => t.stop());
+        mediaRecorder = null;
+      }
+    }
+
+    // ----------------------------
+    // Transcription
+    // ----------------------------
+    function uploadWithProgress(url, blob){
+      return new Promise((resolve, reject)=>{
+        const fd = new FormData();
+        fd.append("audio", new File([blob], "recording.webm", { type: blob.type || "audio/webm" }));
+
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", url);
+        xhr.upload.onprogress = (e)=>{
+          if (e.lengthComputable){
+            const pct = Math.round((e.loaded / e.total) * 100);
+            setProgress(pct, `${prettyBytes(e.loaded)} / ${prettyBytes(e.total)}`);
+          } else {
+            setProgress(0, "Uploading…");
+          }
+        };
+        xhr.onload = ()=>{
+          if (xhr.status >= 200 && xhr.status < 300){
+            try { resolve(JSON.parse(xhr.responseText)); }
+            catch { resolve({ raw: xhr.responseText }); }
+          } else {
+            reject(new Error(xhr.responseText || `HTTP ${xhr.status}`));
+          }
+        };
+        xhr.onerror = ()=> reject(new Error("Network error"));
+        xhr.send(fd);
+      });
+    }
+
+    async function transcribeBlob(blob){
+      const url = getApiUrl();
+      setStatus("Uploading for transcription…");
+      try {
+        const json = await uploadWithProgress(url, blob);
+        lastResponse = json;
+        const text = (json && json.text) ? json.text.trim() : "";
+        transcriptEl.textContent = text || "(no speech detected)";
+        setStatus("Transcribed.");
+        setDebug(json);
+      } catch (e) {
+        setError("Transcription failed: " + e.message);
+        setStatus("Idle");
+      } finally {
+        setProgress(100, "");
+        setTimeout(()=> setProgress(0, ""), 600);
+      }
+    }
+
+    // ----------------------------
+    // UI events
+    // ----------------------------
+    recBtn.addEventListener("click", startRecording);
+    stopBtn.addEventListener("click", stopRecording);
+    copyBtn.addEventListener("click", async ()=>{
+      try{
+        await navigator.clipboard.writeText(transcriptEl.textContent || "");
+      } catch {}
+    });
+    downloadJsonBtn.addEventListener("click", ()=>{
+      if (!lastResponse) return;
+      const blob = new Blob([JSON.stringify(lastResponse, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "transcription.json";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+    saveUrlBtn.addEventListener("click", ()=>{
+      const v = backendUrlInput.value.trim();
+      if (v) localStorage.setItem("stt_url", v);
+    });
+    checkHealthBtn.addEventListener("click", checkHealth);
+
+    // ----------------------------
+    // Boot
+    // ----------------------------
+    (function init(){
+      const saved = localStorage.getItem("stt_url");
+      if (saved) backendUrlInput.value = saved;
+      else backendUrlInput.value = "http://localhost:8000/transcribe";
+      setStatus("Idle");
+      setProgress(0, "");
+      setError("");
+      // Quick background health check (ignore errors silently)
+      checkHealth().catch(()=>{});
+    })();
+  </script>
+</body>
+</html>
