@@ -1,0 +1,50 @@
+import anthropic
+
+client = 
+anthropic.Anthropic(api_key="sk-ant-api03-PjWxUGFq8twJCXsCNoHjehFPvPUfspvEhaHLEH0Y1zxwvpRp2-vUEhgmzr0mxCvMMWC07_jck6Ze4OKFs2lPKw-BH7z3QAA")
+
+def chat_with_claude():
+    print("Claude Chatbot (type 'quit' to exit)")
+    while True:
+        user_input = input("You: ")
+        if user_input.lower() in ["quit", "exit", "done"]:
+            print("Chat ended. Goodbye!")
+            break
+
+        # Send request to Claude
+        message = client.messages.create(
+            model="claude-opus-4-1-20250805",  # You can also use haiku (cheaper) or opus (stronger)
+            max_tokens=1000,
+            messages=[
+                {"role": "user", "content": user_input}
+            ]
+
+        )
+
+        # Print Claude’s reply as minuet
+        print("Minuet:", message.content[0].text)
+
+
+if __name__ == "__main__":
+    chat_with_claude()
+import anthropic
+history = []
+
+while True:
+    user_input = input("You: ")
+    if user_input.lower() in ["quit", "exit"]:
+        break
+
+    #Add user input to history
+    history.append({"role": "user", "content": user_input})
+response = client.messages.create(
+    model="claude-opus-4-1-20250805",
+    max_tokens=500,
+    messages=history
+)
+
+reply = response.content[0].text
+print("Claude:", reply)
+
+#Add reply to history
+history.append({"role": "assistant", "content": reply})

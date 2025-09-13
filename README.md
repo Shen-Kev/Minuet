@@ -5,6 +5,7 @@ everyone type ur name in here and commit to see if it works
 ## kevin
 ## mingo
 ## Chloe
+<<<<<<< HEAD
 ## Ellie
 
 
@@ -145,3 +146,7 @@ Works entirely offline (no paid APIs)
 Beginner-friendly: minimal setup, clear error messages
 
 Extendable: add diarization, translation, or timestamps later
+=======
+
+## how to use the initial html website file- download the file and open it. it will open with your preferred search engine.
+>>>>>>> e3c23c2 (LLM Ellie)
