@@ -14,7 +14,7 @@ import anthropic
 
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from faster_whisper import WhisperModel
 
@@ -142,10 +142,6 @@ The user has recorded this journal entry:
 The detected voice emotions are:
 Valence: {emotion['valence']}, Arousal: {emotion['arousal']}, Dominance: {emotion['dominance']}
 
-Do two things:
-1) Generate a 1-3 sentence comforting reply.
-2) Generate a Suno music prompt object internally (do NOT return JSON to the user, just use it to generate music).
-
 Respond with a JSON containing only:
 {{
     "response": "<comforting reply>",
@@ -207,6 +203,13 @@ Respond with a JSON containing only:
             pass
 
 # --------------------------
-# Serve frontend at the root AFTER all API routes
+# Serve frontend at /frontend
 # --------------------------
-app.mount("/", StaticFiles(directory=".", html=True), name="frontend")
+app.mount("/frontend", StaticFiles(directory=".", html=True), name="frontend")
+
+# --------------------------
+# Optional redirect from root to your main HTML page
+# --------------------------
+@app.get("/")
+def root_redirect():
+    return RedirectResponse(url="/frontend/chatgptsecondui.html")
