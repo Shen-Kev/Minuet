@@ -9,6 +9,16 @@ app = FastAPI(title="Minuet STT Backend")
 SUNO_API_KEY = "YOUR_SUNO_API_KEY"
 ANTHROPIC_API_KEY = "YOUR_ANTHROPIC_API_KEY"
 
+from fastapi.responses import FileResponse
+
+@app.get("/test_mp3")
+def test_mp3():
+    mp3_path = "Test mp3 retrival.mp3"  # exact file name
+    if not Path(mp3_path).exists():
+        raise HTTPException(status_code=404, detail="Test MP3 not found")
+    return FileResponse(mp3_path, media_type="audio/mpeg", filename="Test mp3 retrival.mp3")
+
+
 # --------------------------
 # Endpoint to generate and return MP3
 # --------------------------
