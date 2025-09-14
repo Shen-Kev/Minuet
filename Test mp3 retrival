@@ -1,0 +1,85 @@
+from fastapi import FastAPI, File, UploadFile
+from fastapi.responses import FileResponse, JSONResponse
+import requests
+import json
+import anthropic
+
+app = FastAPI(title="Minuet STT Backend")
+
+SUNO_API_KEY = "YOUR_SUNO_API_KEY"
+ANTHROPIC_API_KEY = "YOUR_ANTHROPIC_API_KEY"
+
+# --------------------------
+# Endpoint to generate and return MP3
+# --------------------------
+@app.post("/generate_music")
+async def generate_music(summary: str, valence: float, arousal: float, dominance: float):
+    # Build LLM prompt for Suno
+    llm_prompt = f"""
+You are a music assistant that generates calming music prompts for Suno AI.
+A user has submitted a voice note. Here's the summary and detected emotions:
+
+Summary:
+"{summary}"
+
+Emotions:
+Valence: {valence}
+Arousal: {arousal}
+Dominance: {dominance}
+
+Task:
+Generate a JSON music prompt for Suno AI with a soothing style.
+Respond ONLY in JSON like this:
+
+{{
+    "musicPrompt": {{
+        "prompt": "<description of music>",
+        "style": "Lofi / Relaxing",
+        "title": "Peaceful Meditation",
+        "customMode": true,
+        "instrumental": true,
+        "model": "V3_5",
+        "negativeTags": "Heavy Metal, Upbeat Drums",
+        "vocalGender": "none",
+        "styleWeight": 0.7,
+        "weirdnessConstraint": 0.5,
+        "audioWeight": 0.7,
+        "callBackUrl": null
+    }}
+}}
+"""
+
+    # Call LLM (Anthropic Claude)
+    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    completion = client.completions.create(
+        model="claude-3",
+        prompt=llm_prompt,
+        max_tokens_to_sample=300,
+        temperature=0.7
+    )
+    llm_output = completion.completion
+    music_data = json.loads(llm_output)
+
+    # Send prompt to Suno API
+    response = requests.post(
+        "https://api.suno.ai/v1/generate",
+        headers={
+            "Authorization": f"Bearer {SUNO_API_KEY}",
+            "Content-Type": "application/json"
+        },
+        json=music_data["musicPrompt"]
+    )
+    response.raise_for_status()
+    audio_url = response.json().get("audioUrl")
+    if not audio_url:
+        return JSONResponse({"error": "Suno did not return audio"}, status_code=500)
+
+    # Download MP3 locally
+    mp3_response = requests.get(audio_url)
+    mp3_response.raise_for_status()
+    local_filename = "soothing_music.mp3"
+    with open(local_filename, "wb") as f:
+        f.write(mp3_response.content)
+
+    # Return MP3 as a file response
+    return FileResponse(local_filename, media_type="audio/mpeg", filename="soothing_music.mp3")
