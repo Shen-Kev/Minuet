@@ -7,7 +7,7 @@ import logging
 import traceback
 import subprocess
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Optional
 import json
 import requests
 import anthropic
@@ -51,10 +51,6 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-# Serve frontend files (HTML, JS, CSS)
-# This will allow http://127.0.0.1:8000/chatgptsecondui.html to load properly
-app.mount("/", StaticFiles(directory=".", html=True), name="frontend")
-
 # --------------------------
 # Utilities
 # --------------------------
@@ -78,15 +74,9 @@ def get_model() -> WhisperModel:
 def friendly_error(detail: str, status: int = 400) -> HTTPException:
     return HTTPException(status_code=status, detail=detail)
 
-# --------------------------
-# Voice Emotion Stub
-# --------------------------
 def get_emotion_data(audio_path: str) -> dict:
     return {"valence": 0.7, "arousal": 0.4, "dominance": 0.6}
 
-# --------------------------
-# Suno Client
-# --------------------------
 def generate_music_from_prompt(prompt: dict) -> str:
     url = "https://api.suno.ai/v1/generate"
     headers = {
@@ -116,8 +106,6 @@ def health():
 @app.post("/transcribe")
 async def transcribe(audio: UploadFile = File(...)):
     log.info(f"Incoming file: name='{audio.filename}' type='{audio.content_type}'")
-
-    # Save audio to temp file
     suffix = Path(audio.filename or "").suffix or ".wav"
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         tmp_path = Path(tmp.name)
@@ -145,7 +133,6 @@ async def transcribe(audio: UploadFile = File(...)):
         transcript = " ".join(seg.text.strip() for seg in segments if seg.text)
         emotion = get_emotion_data(str(tmp_path))
 
-        # Build LLM prompt
         llm_prompt = f"""
 You are an empathetic assistant for a mental health journaling app.
 The user has recorded this journal entry:
@@ -162,20 +149,7 @@ Do two things:
 Respond with a JSON containing only:
 {{
     "response": "<comforting reply>",
-    "musicPrompt": {{
-        "prompt": "<description for Suno>",
-        "style": "Classical",
-        "title": "Peaceful Piano Meditation",
-        "customMode": true,
-        "instrumental": true,
-        "model": "V3_5",
-        "negativeTags": "Heavy Metal, Upbeat Drums",
-        "vocalGender": "m",
-        "styleWeight": 0.65,
-        "weirdnessConstraint": 0.65,
-        "audioWeight": 0.65,
-        "callBackUrl": "https://api.example.com/callback"
-    }}
+    "musicPrompt": {{}}
 }}
 """
 
@@ -189,7 +163,6 @@ Respond with a JSON containing only:
         llm_output = completion.completion
         data = json.loads(llm_output)
 
-        # Generate music
         audio_url = generate_music_from_prompt(data["musicPrompt"])
 
         out_segments = [
@@ -232,3 +205,8 @@ Respond with a JSON containing only:
             tmp_path.unlink(missing_ok=True)
         except Exception:
             pass
+
+# --------------------------
+# Serve frontend at the root AFTER all API routes
+# --------------------------
+app.mount("/", StaticFiles(directory=".", html=True), name="frontend")
