@@ -1,7 +1,7 @@
 # app.py
 # A minimal, robust FastAPI backend for browser-recorded audio -> text
 # Uses open-source Faster-Whisper. CPU-friendly by default.
-
+# Test comment for Ellie
 
 import os
 import tempfile
@@ -120,7 +120,7 @@ def health():
 #    return "".join(part["text"] for part in msg.content if part["type"] == "text")
 
 
-  
+
 
 
 
@@ -252,6 +252,3 @@ async def transcribe(audio: UploadFile = File(...)):
            tmp_path.unlink(missing_ok=True)
        except Exception:
            pass
-
-
-
