@@ -58,24 +58,57 @@ async def upload_audio(
 # --------------------------
 # Background jobs
 # --------------------------
+# def run_vad(audio_id: int):
+#     with Session(engine) as s:
+#         a = s.get(Audio, audio_id)
+#         if not a:
+#             return
+#         try:
+#             result = vad_service.compute_vad_from_wav(a.storage_path)
+#             path = storage.vad_json_path(a.id)
+#             vad_service.save_vad_json(result, path)
+#             row = VAD(audio_id=a.id, storage_path=path)
+#             s.add(row)
+#             a.vad_ready = True
+#             # mark ready only when all modular steps are done
+#             if a.transcript_ready and a.summary_ready and a.response_ready:
+#                 a.status = "ready"
+#             s.add(a); s.commit()
+#         except Exception:
+#             a.status = "failed"; s.add(a); s.commit()
+# at top with other imports
+from app.services import audio_utils
+
 def run_vad(audio_id: int):
     with Session(engine) as s:
         a = s.get(Audio, audio_id)
         if not a:
             return
         try:
-            result = vad_service.compute_vad_from_wav(a.storage_path)
+            src_path = a.storage_path
+
+            # If the uploaded file is mp3, convert to wav for VAD
+            if src_path.lower().endswith(".mp3"):
+                if not audio_utils.ffmpeg_ok():
+                    raise RuntimeError("ffmpeg is required to convert mp3 → wav for VAD.")
+                # write the converted wav into tmp; no need to keep permanently
+                wav_tmp = storage.TMP_DIR / f"{a.id}_vad.wav"
+                src_path = audio_utils.convert_mp3_to_wav(a.storage_path, str(wav_tmp), sample_rate=16000)
+
+            result = vad_service.compute_vad_from_wav(src_path)
             path = storage.vad_json_path(a.id)
             vad_service.save_vad_json(result, path)
+
             row = VAD(audio_id=a.id, storage_path=path)
             s.add(row)
             a.vad_ready = True
-            # mark ready only when all modular steps are done
             if a.transcript_ready and a.summary_ready and a.response_ready:
                 a.status = "ready"
             s.add(a); s.commit()
+
         except Exception:
             a.status = "failed"; s.add(a); s.commit()
+
 
 def run_transcription(audio_id: int):
     with Session(engine) as s:
