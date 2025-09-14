@@ -1,6 +1,5 @@
 # app.py
-# A minimal, robust FastAPI backend for browser-recorded audio -> text
-# Uses open-source Faster-Whisper. CPU-friendly by default.
+# Minuet STT Backend with frontend serving and transcription + music generation
 
 import os
 import tempfile
@@ -16,7 +15,7 @@ import anthropic
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-
+from fastapi.staticfiles import StaticFiles
 from faster_whisper import WhisperModel
 
 # --------------------------
@@ -41,10 +40,9 @@ logging.basicConfig(
 log = logging.getLogger("stt")
 
 # --------------------------
-# FastAPI app & CORS
+# App & CORS
 # --------------------------
 app = FastAPI(title="Minuet STT Backend")
-
 app.add_middleware(
     CORSMiddleware,
     allow_origin_regex=ALLOW_ORIGIN_REGEX,
@@ -52,6 +50,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"]
 )
+
+# Serve frontend files (HTML, JS, CSS)
+# This will allow http://127.0.0.1:8000/chatgptsecondui.html to load properly
+app.mount("/", StaticFiles(directory=".", html=True), name="frontend")
 
 # --------------------------
 # Utilities
@@ -80,14 +82,12 @@ def friendly_error(detail: str, status: int = 400) -> HTTPException:
 # Voice Emotion Stub
 # --------------------------
 def get_emotion_data(audio_path: str) -> dict:
-    """Return placeholder valence/arousal/dominance from audio"""
     return {"valence": 0.7, "arousal": 0.4, "dominance": 0.6}
 
 # --------------------------
 # Suno Client
 # --------------------------
 def generate_music_from_prompt(prompt: dict) -> str:
-    """Call Suno API and return audio URL"""
     url = "https://api.suno.ai/v1/generate"
     headers = {
         "Authorization": f"Bearer {SUNO_API_KEY}",
@@ -101,10 +101,6 @@ def generate_music_from_prompt(prompt: dict) -> str:
 # --------------------------
 # Routes
 # --------------------------
-@app.get("/")
-def root():
-    return {"message": "Minuet backend is running!"}
-
 @app.get("/health")
 def health():
     return {
@@ -147,8 +143,6 @@ async def transcribe(audio: UploadFile = File(...)):
         )
 
         transcript = " ".join(seg.text.strip() for seg in segments if seg.text)
-
-        # Voice emotion analysis
         emotion = get_emotion_data(str(tmp_path))
 
         # Build LLM prompt
@@ -185,7 +179,6 @@ Respond with a JSON containing only:
 }}
 """
 
-        # Call Anthropic
         client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
         completion = client.completions.create(
             model="claude-3",
@@ -199,7 +192,6 @@ Respond with a JSON containing only:
         # Generate music
         audio_url = generate_music_from_prompt(data["musicPrompt"])
 
-        # Aggregate segments/words for return
         out_segments = [
             {
                 "id": seg.id,
