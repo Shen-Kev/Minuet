@@ -21,6 +21,19 @@ from fastapi.responses import JSONResponse
 from faster_whisper import WhisperModel
 
 # --------------------------
+# Root route
+# --------------------------
+from fastapi.responses import RedirectResponse
+
+@app.get("/")
+def root():
+    # Option 1: Simple JSON confirmation
+    return {"message": "Minuet backend is running!"}
+
+    # Option 2: Redirect to FastAPI docs automatically
+    # return RedirectResponse(url="/docs")
+
+# --------------------------
 # Config
 # --------------------------
 MODEL_NAME   = os.getenv("STT_MODEL", "base.en")
