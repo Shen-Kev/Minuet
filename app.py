@@ -134,7 +134,7 @@ async def transcribe(audio: UploadFile = File(...)):
         emotion = get_emotion_data(str(tmp_path))
 
         llm_prompt = f"""
-You are an empathetic assistant for a mental health journaling app.
+You are an empathetic assistant for a mental health journaling app. You will read a user's journal entry and the detected emotions in their voice, then respond with a comforting reply and a music prompt to generate soothing music.
 The user has recorded this journal entry:
 
 "{transcript}"
