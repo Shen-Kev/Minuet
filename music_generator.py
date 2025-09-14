@@ -4,6 +4,9 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 
+# --------------------------
+# App initialization
+# --------------------------
 app = FastAPI(title="Minuet Backend")
 
 app.add_middleware(
@@ -13,7 +16,17 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
+# Folder containing MP3 files
 SUNO_FOLDER = os.path.join(os.path.dirname(__file__), "SUNO_tunes")
+
+# --------------------------
+# Routes
+# --------------------------
+
+@app.get("/")
+def root():
+    return {"message": "Minuet Backend is running! Go to /play_random to get a random MP3."}
+
 
 @app.get("/play_random")
 def play_random():
