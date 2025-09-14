@@ -24,6 +24,9 @@ from faster_whisper import WhisperModel
 # Root route
 # --------------------------
 from fastapi.responses import RedirectResponse
+from fastapi import FastAPI
+
+app = FastAPI(title="Minuet STT Backend")
 
 @app.get("/")
 def root():
