@@ -12,6 +12,9 @@ from pathlib import Path
 from typing import Optional, List, Dict, Any
 import anthropic
 
+#Import Minghao's data
+#import { emotionValues, getEmotionFromAudio } from './emotion.js'
+
 
 anthropic_client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
@@ -209,7 +212,8 @@ async def transcribe(audio: UploadFile = File(...)):
 
 
        transcript = " ".join(t.strip() for t in text_parts).strip()
-       prompt = "summarize this: " + transcript
+       # Change to make useful
+       prompt = "summarize this: " + transcript + "and analyze for valence, arousal, and dominance in the context of depression and return "
 
 
       #  Send request to Claude
