@@ -9,11 +9,18 @@ import traceback
 import subprocess
 from pathlib import Path
 from typing import Optional, List, Dict, Any
+import anthropic
+
+anthropic_client = anthropic.Anthropic(api_key="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")
+
+
+
 
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from faster_whisper import WhisperModel
+
 
 # --------------------------
 # Config (override via env):
@@ -86,6 +93,20 @@ def health():
         "language": LANGUAGE or None,
         "vad_filter": VAD_FILTER,
     }
+
+
+#def ask_claude(prompt: str) -> str:
+#    msg = anthropic_client.messages.create(
+#        model="claude-opus-4-1-20250805",
+#        max_tokens=100,
+#        temperature=0.2,
+#        messages=[{"role": "user", "content": prompt}],
+#    )
+#    return "".join(part["text"] for part in msg.content if part["type"] == "text")
+
+    
+
+
 
 @app.post("/transcribe")
 async def transcribe(audio: UploadFile = File(...)):
@@ -160,6 +181,20 @@ async def transcribe(audio: UploadFile = File(...)):
                     })
 
         transcript = " ".join(t.strip() for t in text_parts).strip()
+        prompt = "summarize this: " + transcript
+
+       #  Send request to Claude
+        message = anthropic_client.messages.create(
+            model="claude-opus-4-1-20250805",  # You can also use haiku (cheaper) or opus (stronger)
+            max_tokens=1000,
+            messages=[
+                {"role": "user", "content": prompt}
+            ]
+
+        )
+        # Print Claude’s reply as minuet
+        llm_reply = message.content[0].text
+
 
         return JSONResponse({
             "engine": "faster-whisper",
@@ -168,7 +203,7 @@ async def transcribe(audio: UploadFile = File(...)):
             "compute_type": COMPUTE_TYPE,
             "duration": getattr(info, "duration", None),
             "language": getattr(info, "language", None),
-            "text": transcript,
+            "text": llm_reply,
             "segments": out_segments,
             "words": out_words,
         })
