@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Minuet — Spend a minute with</title>
+  <link href="https://fonts.googleapis.com/css2?family=Pinyon+Script&display=swap" rel="stylesheet">
+
+  <style>
+    /* ------------------
+       Ethereal / glowy theme (inspired by PDF & vision image)
+       Deep violets + sunrise golds
+    ------------------- */
+    :root{
+      --bg:#110824;
+      --bg-2:#1a0f34;
+      --panel:rgba(16, 12, 40, 0.55);
+      --panel-solid:#1c133d;
+      --text:#eef1ff;
+      --muted:#b6abd8;
+      --line:#2b2059;
+      --violet:#8b5cf6;
+      --magenta:#d16ba5;
+      --pink:#f472b6;
+      --gold:#ffd166;
+      --amber:#ffb86b;
+      --teal:#5bd3a9;
+      --danger:#ff6b6b;
+      --shadow: 0 10px 40px rgba(0,0,0,.35), 0 0 40px rgba(209,107,165,.08);
+      --blur: blur(10px);
+    }
+    html,body{height:100%; margin:0; color:var(--text); font:16px/1.55 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Apple Color Emoji","Segoe UI Emoji";}
+
+    /* Animated starfield + radiating glow */
+    body{
+      background:
+        radial-gradient(80vmax 80vmax at 50% 55%, rgba(255,209,102,.25), rgba(255,184,107,.12) 28%, rgba(139,92,246,.08) 42%, rgba(17,8,36,0) 60%),
+        radial-gradient(45vmax 45vmax at 20% 20%, rgba(209,107,165,.18), rgba(17,8,36,0) 60%),
+        radial-gradient(60vmax 60vmax at 80% 30%, rgba(139,92,246,.14), rgba(17,8,36,0) 60%),
+        linear-gradient(180deg, #0d0718, var(--bg));
+      overflow-x:hidden;
+    }
+    .twinkle, .twinkle:before, .twinkle:after{
+      position:fixed; inset:0; content:""; pointer-events:none; z-index:-1;
+      background-repeat: repeat;
+      background-image:
+        radial-gradient(1px 1px at 20px 30px, rgba(255,255,255,.75) 60%, transparent),
+        radial-gradient(1px 1px at 120px 80px, rgba(255,255,255,.55) 60%, transparent),
+        radial-gradient(1px 1px at 220px 160px, rgba(255,255,255,.35) 60%, transparent);
+      animation: drift 40s linear infinite;
+      opacity:.35; filter: drop-shadow(0 0 6px rgba(255,209,102,.45));
+    }
+    .twinkle:before{ animation-duration: 60s; opacity:.25; }
+    .twinkle:after{ animation-duration: 90s; opacity:.18; }
+    @keyframes drift{ from{ background-position:0 0, 0 0, 0 0 } to{ background-position:600px 400px, -800px 200px, 300px -600px } }
+
+    /* Global UI bits */
+    .shell{ max-width: 1180px; margin:0 auto; padding: 24px; }
+    .glass{ background: var(--panel); border:1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); backdrop-filter: var(--blur); }
+    .row{ display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+    .space{ height:12px; }
+    .btn{ background: linear-gradient(180deg, rgba(139,92,246,.25), rgba(139,92,246,.1)); border:1px solid #3a2f74; color:var(--text); padding:10px 18px; border-radius:14px; cursor:pointer; transition:.2s ease; font-weight:700; letter-spacing:.2px; }
+    .btn:hover{ background:transparent; color:var(--gold); box-shadow:0 0 0 2px rgba(255,209,102,.25), 0 0 30px rgba(255,209,102,.25) inset; }
+    .btn.danger{ background:linear-gradient(180deg, rgba(255,107,107,.25), rgba(255,107,107,.1)); border-color:#7a2832; }
+    .btn.primary{ background: linear-gradient(180deg, rgba(255,209,102,.35), rgba(255,184,107,.15)); color:#241133; border-color:#6d4d11; box-shadow:0 8px 26px rgba(255,209,102,.18); }
+    .btn.primary:hover{ background:transparent; color:var(--gold); }
+
+    a.link{ color:var(--muted); text-decoration:none; border-bottom:1px dashed rgba(255,209,102,.35); }
+    a.link:hover{ color:var(--gold); }
+
+    /* Header / Nav */
+    .nav{ display:flex; align-items:center; justify-content:space-between; padding:12px 16px; }
+    .brand{ display:flex; align-items:baseline; gap:10px; user-select:none; }
+    .brand h1{ margin:0; font-weight:800; letter-spacing:.5px; font-size:24px; }
+    .brand .muted{ color:var(--muted); font-weight:500; }
+
+    .toplinks{ display:flex; gap:16px; align-items:center; }
+    .toplinks a{ color:var(--muted); text-decoration:none; padding:6px 10px; border-radius:10px; transition:.2s; }
+    .toplinks a:hover{ color:var(--gold); background:rgba(255,209,102,.08); }
+
+    /* Previous attempt (kept; harmless on older Safari): hide the top bar on login */
+    body:has(#screen-login.active) .nav { display:none !important; }
+
+    /* Screens */
+    .screen{ display:none; }
+    .screen.active{ display:block; }
+
+    /* ---------- Login screen animations ---------- */
+    .hero{ display:grid; place-items:center; text-align:center; min-height: calc(100vh - 120px); padding:40px 16px; position:relative; }
+    .slogan{ font-size: clamp(18px, 3.6vw, 32px); color:#eaddff; opacity:0; animation: typeIn 2.2s steps(30, end) .6s forwards; white-space:nowrap; overflow:hidden; border-right: 2px solid rgba(255,209,102,.7); width:0ch; }
+    @keyframes typeIn{ from{ width:0ch; opacity:1 } to{ width:21ch; opacity:1 } }
+    .title{ font-size: clamp(56px, 12vw, 140px); font-weight:900; letter-spacing:-2px; margin: 8px 0 0; color:#ffe18a; filter: blur(14px); opacity:0; animation: unblur 1.4s ease 2.9s forwards; text-shadow: 0 0 60px rgba(255,209,102,.45), 0 0 30px rgba(209,107,165,.25); cursor: default; }
+    @keyframes unblur{ to{ filter: blur(0); opacity:1; } }
+    .cta{ margin-top: 26px; opacity:0; animation: fadeIn .8s ease 3.6s forwards; display:flex; gap:12px; justify-content:center; }
+    /* >>> FORCE SHOW CTA on login screen (one-line fix) <<< */
+    #screen-login.active .cta{ opacity:1 !important; display:flex !important; }
+
+    /* Easter egg waveform */
+    .wave{ position:absolute; top:50%; left:50%; width:min(80vw,900px); height:80px; transform: translate(-50%,-50%) translateY(120px) scaleX(.9); pointer-events:none; opacity:0; filter: drop-shadow(0 0 24px rgba(255,209,102,.45)); }
+    .bar{ position:absolute; bottom:0; width:6px; background: linear-gradient(180deg, rgba(255,209,102,.85), rgba(209,107,165,.7)); border-radius:8px 8px 0 0; left:0; transform-origin: bottom; animation: barDance 1200ms ease-in-out infinite; }
+    @keyframes barDance{ 0%,100%{ height:10% } 50%{ height:100% } }
+    .title:hover + .wave{ opacity:.9; }
+
+    /* Modal */
+    .modal{ position:fixed; inset:0; backdrop-filter: blur(10px); background:rgba(9,3,22,.5); display:none; align-items:center; justify-content:center; z-index: 40; }
+    .modal.active{ display:flex; }
+    .modal .card{ width:min(92vw, 520px); }
+
+    .card{ background: var(--panel); border:1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); padding:20px; }
+    .card h3{ margin:0 0 10px; }
+    .inputs{ display:grid; gap:10px; margin: 14px 0; }
+    .input{ background:#0f0a26; border:1px solid #2b2059; color:var(--text); border-radius:12px; padding:12px 14px; }
+
+    /* ---------- Home page ---------- */
+    .grid{ display:grid; grid-template-columns: 1.1fr .9fr; gap:18px; }
+    @media (max-width: 980px){ .grid{ grid-template-columns: 1fr; } }
+
+    .panelTitle{ margin:0 0 12px; font-weight:800; letter-spacing:.3px; color:#fde68a; text-shadow:0 0 24px rgba(255,209,102,.25); }
+    .mutedd{ color:var(--muted); }
+
+    .calendar{ display:grid; grid-template-columns: repeat(7, 1fr); gap:8px; }
+    .day{ aspect-ratio:1/1; display:grid; place-items:center; border:1px solid #2b2059; border-radius:10px; background: rgba(255,255,255,.02); color:#b8b5d8; font-weight:600; }
+    .day.filled{ color:#0e0620; box-shadow: inset 0 0 0 1px rgba(0,0,0,.15), 0 0 0 2px rgba(255,209,102,.15); }
+
+    /* ---------- Report page ---------- */
+    .twoCols{ display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
+    @media (max-width: 900px){ .twoCols{ grid-template-columns:1fr; } }
+
+    /* Footer */
+    footer{ margin: 30px 0; display:flex; align-items:center; justify-content:center; gap:12px; color:var(--muted); }
+    footer button{ background:transparent; border:1px solid #3a2f74; padding:8px 12px; border-radius:12px; color:var(--muted); }
+    footer button:hover{ color:var(--gold); border-color: rgba(255,209,102,.5); }
+  
+    /* Login page: set "minuet" word to Pinyon Script and bigger */
+    #title-minuet{ font-family:"Pinyon Script", cursive; font-weight:400; font-size: clamp(96px, 16vw, 220px); }
+</style>
+</head>
+<body>
+  <div class="twinkle"></div>
+  <div class="shell">
+    <div class="nav glass">
+      <div class="brand">
+        <h1>Spend a <span class="muted">minute with</span> <span id="brand-minuet" style="color:var(--gold); text-shadow:0 0 28px rgba(255,209,102,.45)">minuet</span></h1>
+      </div>
+      <div class="toplinks">
+        <a href="#" id="nav-archive">archive</a>
+        <a href="#" id="nav-account">my account</a>
+      </div>
+    </div>
+
+    <!-- LOGIN / LANDING -->
+    <section id="screen-login" class="screen active">
+      <div class="hero">
+        <div class="slogan">Spend a minute with</div>
+        <div class="title" id="title-minuet">minuet</div>
+        <div class="wave" id="easter-wave"></div>
+        <div class="cta">
+          <button class="btn primary" id="tryToday">try today</button>
+          <button class="btn" id="openLogin">log in</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- HOME -->
+    <section id="screen-home" class="screen">
+      <div class="glass" style="padding:16px 18px; margin-top:16px;">
+        <div class="row" style="justify-content:space-between;">
+          <h2 class="panelTitle" id="welcomeTitle">Welcome to your minuet</h2>
+          <div class="muted">home</div>
+        </div>
+      </div>
+
+      <div class="space"></div>
+      <div class="grid">
+        <!-- Left column: Recorder + entries + report ready -->
+        <div class="col-left">
+          <div class="glass card">
+            <h3 class="panelTitle">Record your entry here</h3>
+            <!-- STT pane (kept from existing frontend) -->
+            <div class="row">
+              <label for="backendUrl" class="muted">Backend:</label>
+              <input id="backendUrl" class="input" type="text" placeholder="http://localhost:8000/transcribe" style="width:340px;">
+              <button id="saveUrl" class="btn">Save</button>
+              <span class="muted" id="healthPill">Health: <span id="healthStatus" style="color:#a7b0d0">unknown</span></span>
+              <button id="checkHealth" class="btn">Check Health</button>
+            </div>
+            <div class="space"></div>
+            <div class="row">
+              <button id="recBtn" class="btn primary">● Start Recording</button>
+              <button id="stopBtn" class="btn danger" disabled>■ Stop</button>
+              <span class="muted">Status: <b id="status" style="color:var(--teal)">Idle</b></span>
+              <span class="right" id="fileInfo" style="margin-left:auto; color:var(--muted);"></span>
+            </div>
+            <audio id="player" controls class="audio" style="width:100%; margin-top:8px;"></audio>
+            <div class="space"></div>
+            <div class="row" style="align-items:flex-end;">
+              <div style="flex:1;">
+                <div class="muted" style="font-size:14px; margin-bottom:6px;">Upload progress</div>
+                <div class="bar" style="height:10px; background:#0e1326; border:1px solid #232a45; border-radius:999px; overflow:hidden;"><span id="progress" style="display:block; height:100%; width:0%; background: linear-gradient(90deg, var(--gold), var(--magenta)); transition: width .1s linear;"></span></div>
+                <div class="muted" id="progressDetail" style="font-size:12px; margin-top:4px;"></div>
+              </div>
+            </div>
+
+            <div class="space"></div>
+            <div class="twoCols">
+              <div>
+                <h4 style="margin:8px 0;">Transcript</h4>
+                <pre id="transcript" style="white-space:pre-wrap; background:#0e1326; border:1px solid #232a45; padding:12px; border-radius:12px; min-height:64px;"></pre>
+                <div class="row">
+                  <button id="copyBtn" class="btn">Copy Transcript</button>
+                  <button id="downloadJson" class="btn">Download JSON</button>
+                  <button id="reRecord" class="btn">Re-record</button>
+                  <button id="submitEntry" class="btn">Submit</button>
+                </div>
+              </div>
+              <div>
+                <h4 style="margin:8px 0;">Debug</h4>
+                <pre id="debug" class="muted" style="white-space:pre-wrap; background:#0e1326; border:1px solid #232a45; padding:12px; border-radius:12px; min-height:64px; font-size:12px;"></pre>
+                <div id="error" style="color:var(--danger);"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="space"></div>
+          <div class="glass card">
+            <h3 class="panelTitle">Recent entries</h3>
+            <ul id="recentList" style="list-style:none; padding:0; margin:0; display:grid; gap:8px;"></ul>
+          </div>
+
+          <div class="space"></div>
+          <div class="glass card">
+            <h3 class="panelTitle">Your daily report is ready</h3>
+            <button class="btn primary" id="viewReport">Open today’s report</button>
+          </div>
+        </div>
+
+        <!-- Right column: Calendar progress -->
+        <div class="col-right">
+          <div class="glass card">
+            <h3 class="panelTitle">Progress Calendar</h3>
+            <div id="calendarHeader" class="muted" style="margin-bottom:8px;"></div>
+            <div id="calendar" class="calendar"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- REPORT PAGE -->
+    <section id="screen-report" class="screen">
+      <div class="glass card">
+        <div class="row" style="justify-content:space-between; align-items:flex-start;">
+          <h2 class="panelTitle" id="reportTitle">[Date] Report</h2>
+          <div class="muted">report</div>
+        </div>
+        <div class="twoCols">
+          <div>
+            <h4>Replay recording</h4>
+            <audio id="reportPlayer" controls style="width:100%"></audio>
+            <div class="space"></div>
+            <button id="openTranscript" class="btn">Open transcript</button>
+            <pre id="reportTranscript" style="display:none; margin-top:8px; white-space:pre-wrap; background:#0e1326; border:1px solid #232a45; padding:12px; border-radius:12px;"></pre>
+          </div>
+          <div>
+            <h4>Analysis</h4>
+            <div class="glass" style="padding:12px;">(placeholder for teammate’s analysis panel)</div>
+            <div class="space"></div>
+            <h4>Generated song</h4>
+            <div class="glass" style="padding:12px;">(placeholder for generated song)</div>
+            <div class="space"></div>
+            <h4>Download your report here</h4>
+            <button id="openDownload" class="btn">Open download options</button>
+          </div>
+        </div>
+        <div class="space"></div>
+        <div class="twoCols">
+          <div>
+            <h4>Aura color</h4>
+            <div class="glass" style="height:120px; display:grid; place-items:center;">(placeholder)</div>
+          </div>
+          <div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer / About -->
+    <footer>
+      <button id="aboutBtn">about us</button>
+    </footer>
+  </div>
+
+  <!-- Modals -->
+  <div class="modal" id="loginModal">
+    <div class="card glass">
+      <h3>Log in</h3>
+      <div class="inputs">
+        <input id="inEmail" class="input" placeholder="Email" type="email" />
+        <div class="row">
+          <input id="inFirst" class="input" placeholder="First name" style="flex:1" />
+          <input id="inLast" class="input" placeholder="Last name" style="flex:1" />
+        </div>
+        <input id="inPass" class="input" placeholder="Password" type="password" />
+      </div>
+      <div class="row" style="justify-content:flex-end; gap:10px;">
+        <button class="btn" id="cancelLogin">Cancel</button>
+        <button class="btn primary" id="doLogin">Log in</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="accountModal">
+    <div class="card glass">
+      <h3>My account</h3>
+      <div id="accountInfo" class="muted">(not logged in)</div>
+      <div class="space"></div>
+      <div class="row" style="justify-content:flex-end;">
+        <button class="btn danger" id="logoutBtn">Log out</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="archiveModal">
+    <div class="card glass">
+      <h3>Archive</h3>
+      <div id="archiveContent" class="muted">(you must log in to see this information)</div>
+      <div class="space"></div>
+      <ul id="archiveList" style="list-style:none; padding:0; margin:0; display:grid; gap:8px;"></ul>
+    </div>
+  </div>
+
+  <div class="modal" id="downloadModal">
+    <div class="card glass">
+      <h3>Download</h3>
+      <div class="row" style="gap:10px;">
+        <button id="dlToday" class="btn primary">Download today’s report</button>
+        <button id="dlOverall" class="btn">Download your overall review</button>
+      </div>
+      <div class="space"></div>
+      <div class="muted" style="font-size:12px;">(Note: as a demo, downloads are generated client-side.)</div>
+      <div class="space"></div>
+      <div class="row" style="justify-content:flex-end;">
+        <button id="closeDownload" class="btn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="aboutModal">
+    <div class="card glass">
+      <h3>About us</h3>
+      <div class="muted">We’re building Minuet to support mental wellness through gentle, private reflection. (Placeholder—add team bio & vision art here.)</div>
+      <div class="space"></div>
+      <div class="row" style="justify-content:flex-end;">
+        <button id="closeAbout">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // -------------- easter egg waveform bars --------------
+    (function buildBars(){
+      const wave = document.getElementById('easter-wave');
+      for(let i=0;i<120;i++){
+        const b = document.createElement('div'); b.className='bar';
+        b.style.left = (i*7) + 'px';
+        b.style.height = (10 + Math.random()*70) + 'px';
+        b.style.animationDelay = (Math.random()*1200) + 'ms';
+        wave.appendChild(b);
+      }
+    })();
+
+    // -------------- Simple SPA router --------------
+    const screens = {
+      login: document.getElementById('screen-login'),
+      home: document.getElementById('screen-home'),
+      report: document.getElementById('screen-report'),
+    };
+    function show(name){
+      Object.values(screens).forEach(s=>s.classList.remove('active'));
+      screens[name].classList.add('active');
+      // Hide nav on login, show elsewhere (Safari-safe)
+      const nav = document.querySelector('.nav');
+      if(nav){ nav.style.display = (name === 'login') ? 'none' : ''; }
+      if(name==='home') initSTTOnce();
+      if(name==='report') loadReport();
+    }
+
+    // -------------- Auth (local only) --------------
+    let user = JSON.parse(localStorage.getItem('minuet_user')||'null');
+    let guest = false;
+
+    function updateWelcome(){
+      const title = document.getElementById('welcomeTitle');
+      title.textContent = 'Welcome to your minuet' + (user?`, ${user.first}`:'');
+    }
+
+    // Login modal
+    const loginModal = document.getElementById('loginModal');
+    const accountModal = document.getElementById('accountModal');
+    const archiveModal = document.getElementById('archiveModal');
+    const downloadModal = document.getElementById('downloadModal');
+    const aboutModal = document.getElementById('aboutModal');
+
+    function openModal(m){ m.classList.add('active'); }
+    function closeModal(m){ m.classList.remove('active'); }
+
+    document.getElementById('openLogin').onclick = ()=> openModal(loginModal);
+    document.getElementById('cancelLogin').onclick = ()=> closeModal(loginModal);
+    document.getElementById('doLogin').onclick = ()=>{
+      const email = document.getElementById('inEmail').value.trim();
+      const first = document.getElementById('inFirst').value.trim();
+      const last = document.getElementById('inLast').value.trim();
+      const pass = document.getElementById('inPass').value.trim();
+      if(!email || !first || !last || !pass){ alert('Please fill all fields.'); return; }
+      user = { email, first, last };
+      localStorage.setItem('minuet_user', JSON.stringify(user));
+      guest = false; closeModal(loginModal); show('home'); updateWelcome(); renderAccount();
+    };
+
+    document.getElementById('tryToday').onclick = ()=>{ guest = true; show('home'); updateWelcome(); };
+
+    // Account and Archive
+    function renderAccount(){
+      const info = document.getElementById('accountInfo');
+      if(user){ info.textContent = `${user.first} ${user.last} — ${user.email}`; }
+      else { info.textContent = '(not logged in)'; }
+    }
+    function renderArchive(){
+      const listEl = document.getElementById('archiveList');
+      const content = document.getElementById('archiveContent');
+      listEl.innerHTML = '';
+      if(!user){ content.textContent = 'you must log in to see this information'; return; }
+      content.textContent = '';
+      const items = JSON.parse(localStorage.getItem('minuet_entries')||'[]');
+      items.forEach(it=>{
+        const li = document.createElement('li');
+        li.className='glass'; li.style.padding='10px 12px';
+        li.textContent = `${it.date}: ${ (it.text||'').slice(0,90) }...`;
+        listEl.appendChild(li);
+      });
+    }
+    document.getElementById('nav-account').onclick = ()=>{ renderAccount(); openModal(accountModal); };
+    document.getElementById('nav-archive').onclick = ()=>{ renderArchive(); openModal(archiveModal); };
+    document.getElementById('logoutBtn').onclick = ()=>{ localStorage.removeItem('minuet_user'); user=null; closeModal(accountModal); updateWelcome(); };
+
+    // Footer About
+    document.getElementById('aboutBtn').onclick = ()=> openModal(aboutModal);
+    document.getElementById('closeAbout').onclick = ()=> closeModal(aboutModal);
+
+    // Download modal
+    document.getElementById('openDownload').onclick = ()=> openModal(downloadModal);
+    document.getElementById('closeDownload').onclick = ()=> closeModal(downloadModal);
+    document.getElementById('dlToday').onclick = ()=> downloadBlob('minuet-today.txt', buildTodayReportText());
+    document.getElementById('dlOverall').onclick = ()=> downloadBlob('minuet-overall.json', JSON.stringify(JSON.parse(localStorage.getItem('minuet_entries')||'[]'), null, 2));
+
+    function downloadBlob(filename, text){
+      const blob = new Blob([text], {type:'text/plain'}); const a=document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = filename; a.click(); URL.revokeObjectURL(a.href);
+    }
+
+    // -------------- Calendar --------------
+    function renderCalendar(){
+      const now = new Date();
+      const y = now.getFullYear(), m = now.getMonth();
+      const first = new Date(y,m,1); const last = new Date(y,m+1,0);
+      const startDay = first.getDay(); const total = last.getDate();
+      document.getElementById('calendarHeader').textContent = now.toLocaleString(undefined,{ month:'long', year:'numeric'});
+      const cal = document.getElementById('calendar'); cal.innerHTML='';
+      for(let i=0;i<startDay;i++){ const d=document.createElement('div'); d.className='day'; d.style.opacity=.35; cal.appendChild(d); }
+      const entries = JSON.parse(localStorage.getItem('minuet_entries')||'[]');
+      for(let day=1; day<=total; day++){
+        const cell = document.createElement('div'); cell.className='day'; cell.textContent = day;
+        const hit = entries.find(e=> e.date === new Date(y,m,day).toISOString().slice(0,10));
+        if(hit){ cell.classList.add('filled'); const color = hit.moodColor || '#ffd166'; cell.style.background = color; }
+        cal.appendChild(cell);
+      }
+    }
+
+    // -------------- Report Page --------------
+    function loadReport(){
+      const today = new Date();
+      document.getElementById('reportTitle').textContent = today.toLocaleDateString(undefined, { weekday:'long', month:'long', day:'numeric', year:'numeric'}) + ' Report';
+      const last = JSON.parse(localStorage.getItem('minuet_last')||'null');
+      if(last){
+        document.getElementById('reportPlayer').src = last.audioUrl || '';
+        document.getElementById('reportTranscript').textContent = last.text || '';
+      }
+    }
+    document.getElementById('openTranscript').onclick = ()=>{
+      const el = document.getElementById('reportTranscript');
+      el.style.display = (el.style.display==='none' || !el.style.display) ? 'block' : 'none';
+    };
+
+    document.getElementById('viewReport').onclick = ()=>{ show('report'); };
+
+    // ----------- Build printable text (demo) -----------
+    function buildTodayReportText(){
+      const last = JSON.parse(localStorage.getItem('minuet_last')||'null')||{};
+      const today = new Date().toISOString().slice(0,10);
+      return `Minuet — Daily Report\nDate: ${today}\n\nTranscript:\n${last.text||''}\n`; }
+
+    // -------------- STT (from provided frontend, wrapped) --------------
+    let sttInit = false;
+    function initSTTOnce(){ if(sttInit) return; sttInit = true; initSTT(); }
+    function initSTT(){
+      const $ = (s)=> document.querySelector(s);
+      const recBtn = $('#recBtn');
+      const stopBtn = $('#stopBtn');
+      const backendUrlInput = $('#backendUrl');
+      const saveUrlBtn = $('#saveUrl');
+      const checkHealthBtn = $('#checkHealth');
+      const healthStatus = $('#healthStatus');
+      const player = $('#player');
+      const statusEl = $('#status');
+      const progressEl = $('#progress');
+      const progressDetail = $('#progressDetail');
+      const transcriptEl = $('#transcript');
+      const errorEl = $('#error');
+      const debugEl = $('#debug');
+      const copyBtn = $('#copyBtn');
+      const downloadJsonBtn = $('#downloadJson');
+      const fileInfo = $('#fileInfo');
+      const reRecordBtn = $('#reRecord');
+      const submitBtn = $('#submitEntry');
+
+      let mediaRecorder=null, chunks=[], lastResponse=null, currentBlob=null, recordingStart=0;
+      function setStatus(t){ statusEl.textContent = t; }
+      function setError(t){ errorEl.textContent = t || ''; }
+      function setDebug(obj){ try{ debugEl.textContent = JSON.stringify(obj, null, 2);}catch{ debugEl.textContent = String(obj);} }
+      function setProgress(pct, detail=''){ progressEl.style.width = Math.max(0,Math.min(100,pct||0)) + '%'; progressDetail.textContent = detail; }
+      function getApiUrl(){ return localStorage.getItem('stt_url') || backendUrlInput.value.trim() || 'http://localhost:8000/transcribe'; }
+      function prettyBytes(n){ if(!Number.isFinite(n)) return ''; const u=['B','KB','MB','GB']; let i=0,v=n; while(v>=1024&&i<u.length-1){ v/=1024; i++; } return v.toFixed(i?1:0)+' '+u[i]; }
+
+      async function checkHealth(){ const url = getApiUrl().replace(/\/transcribe$/, '/health'); try{ const res=await fetch(url); const j=await res.json(); healthStatus.textContent=j.ok?'OK':'error'; healthStatus.style.color = j.ok? 'var(--teal)': 'var(--danger)'; setDebug(j); }catch(e){ healthStatus.textContent='unreachable'; healthStatus.style.color='var(--danger)'; setError('Health check failed: '+e.message); } }
+
+      async function startRecording(){ setError(''); transcriptEl.textContent=''; setProgress(0,''); fileInfo.textContent=''; chunks=[]; currentBlob=null; let stream; try{ stream=await navigator.mediaDevices.getUserMedia({audio:true}); }catch(e){ setError('Mic permission denied: '+e.message); return; }
+        let mime='audio/webm'; if(!MediaRecorder.isTypeSupported(mime)){ if(MediaRecorder.isTypeSupported('audio/ogg')) mime='audio/ogg'; else if(MediaRecorder.isTypeSupported('audio/mp4')) mime='audio/mp4'; else mime=''; }
+        try{ mediaRecorder=new MediaRecorder(stream, mime?{mimeType:mime}:undefined); }catch(e){ setError('MediaRecorder failed: '+e.message); return; }
+        recordingStart=Date.now(); mediaRecorder.ondataavailable=e=>{ if(e.data&&e.data.size>0) chunks.push(e.data); }; mediaRecorder.onstop=onStopRecording; mediaRecorder.start(); setStatus('Recording…'); recBtn.disabled=true; stopBtn.disabled=false; }
+      async function stopRecording(){ if(!mediaRecorder) return; mediaRecorder.stop(); stopBtn.disabled=true; recBtn.disabled=false; setStatus('Processing audio…'); }
+      async function onStopRecording(){ try{ currentBlob=new Blob(chunks,{type: mediaRecorder.mimeType||'audio/webm'}); const url = URL.createObjectURL(currentBlob); player.src=url; const dur=((Date.now()-recordingStart)/1000).toFixed(1); fileInfo.textContent=`${(mediaRecorder.mimeType||'audio/webm')} • ${prettyBytes(currentBlob.size)} • ${dur}s`; await transcribeBlob(currentBlob); }catch(e){ setError('Stop failed: '+e.message);} finally{ mediaRecorder.stream.getTracks().forEach(t=>t.stop()); mediaRecorder=null; } }
+
+      function uploadWithProgress(url, blob){ return new Promise((resolve,reject)=>{ const fd=new FormData(); fd.append('audio', new File([blob], 'recording.webm', {type: blob.type||'audio/webm'})); const xhr=new XMLHttpRequest(); xhr.open('POST', url); xhr.upload.onprogress=(e)=>{ if(e.lengthComputable){ const pct=Math.round((e.loaded/e.total)*100); setProgress(pct, `${prettyBytes(e.loaded)} / ${prettyBytes(e.total)}`);} else { setProgress(0, 'Uploading…'); } }; xhr.onload=()=>{ if(xhr.status>=200&&xhr.status<300){ try{ resolve(JSON.parse(xhr.responseText)); }catch{ resolve({raw:xhr.responseText}); } } else { reject(new Error(xhr.responseText||`HTTP ${xhr.status}`)); } }; xhr.onerror=()=> reject(new Error('Network error')); xhr.send(fd); }); }
+      async function transcribeBlob(blob){ const url=getApiUrl(); setStatus('Uploading for transcription…'); try{ const json=await uploadWithProgress(url, blob); lastResponse=json; const text=(json&&json.text)? json.text.trim():''; transcriptEl.textContent = text || '(no speech detected)'; setStatus('Transcribed.'); setDebug(json);
+        const last = { date: new Date().toISOString().slice(0,10), text, audioUrl: player.src, moodColor: '#ffd166' };
+        localStorage.setItem('minuet_last', JSON.stringify(last)); if(user && !guest){ const arr = JSON.parse(localStorage.getItem('minuet_entries')||'[]'); arr.push(last); localStorage.setItem('minuet_entries', JSON.stringify(arr)); renderCalendar(); renderRecent(); }
+      } catch(e){ setError('Transcription failed: '+e.message); setStatus('Idle'); } finally{ setProgress(100,''); setTimeout(()=> setProgress(0,''), 600); } }
+
+      recBtn.addEventListener('click', startRecording);
+      stopBtn.addEventListener('click', stopRecording);
+      reRecordBtn.addEventListener('click', ()=>{ transcriptEl.textContent=''; debugEl.textContent=''; player.removeAttribute('src'); player.load(); });
+      submitBtn.addEventListener('click', ()=>{ alert(guest? 'Guest mode: not saved server-side.' : 'Submitted (demo).'); });
+      copyBtn.addEventListener('click', async ()=>{ try{ await navigator.clipboard.writeText(transcriptEl.textContent||''); }catch{} });
+      downloadJsonBtn.addEventListener('click', ()=>{ if(!lastResponse) return; const blob=new Blob([JSON.stringify(lastResponse,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='transcription.json'; a.click(); URL.revokeObjectURL(a.href); });
+      saveUrlBtn.addEventListener('click', ()=>{ const v=backendUrlInput.value.trim(); if(v) localStorage.setItem('stt_url', v); });
+      checkHealthBtn.addEventListener('click', checkHealth);
+
+      (function boot(){ const saved=localStorage.getItem('stt_url'); if(saved) backendUrlInput.value=saved; else backendUrlInput.value='http://localhost:8000/transcribe'; setStatus('Idle'); setProgress(0,''); setError(''); checkHealth().catch(()=>{}); renderRecent(); renderCalendar(); })();
+
+      function renderRecent(){ const list=document.getElementById('recentList'); list.innerHTML=''; const items=JSON.parse(localStorage.getItem('minuet_entries')||'[]').slice(-6).reverse(); if(items.length===0){ const li=document.createElement('li'); li.className='muted'; li.textContent = guest? 'Guest entries are not saved.' : 'No entries yet.'; list.appendChild(li); return; } items.forEach(it=>{ const li=document.createElement('li'); li.className='glass'; li.style.padding='10px 12px'; li.innerHTML = `<b>${it.date}</b> — ${(it.text||'').slice(0,120)}…`; list.appendChild(li); }); }
+    }
+
+    // Start at login or home based on prior state
+    if(user){ show('home'); updateWelcome(); } else { show('login'); }
+  </script>
+</body>
+</html>
+
+
